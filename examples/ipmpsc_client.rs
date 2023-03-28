@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use ipmpsc::{Receiver, Sender, SharedRingBuffer};
-use rust_ipc_examples::Connection;
+use rust_ipc_examples::{IpmpscConnection, print_latency};
 use std::time::Instant;
 
 const TEST_NUM: u64 = 100000;
@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn pingpong(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+fn pingpong(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error>> {
     // ping pong test
     let begin = Instant::now();
     for _ in 0..TEST_NUM {
@@ -24,7 +24,7 @@ fn pingpong(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
         let received = conn.recv::<String>()?;
         assert_eq!("hello", received);
     }
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
 
     // ping pong test (zero copy)
     let begin = Instant::now();
@@ -33,7 +33,7 @@ fn pingpong(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!("hello", conn.rx.zero_copy_context().recv::<&str>()?); //zero copy
     }
     println!("zero copy: ");
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
 
     // ping pong test (busy polling)
     let begin = Instant::now();
@@ -43,7 +43,7 @@ fn pingpong(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!("hello", received);
     }
     println!("polling: ");
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
 
     // ping pong test (zero copy & busy polling)
     let begin = Instant::now();
@@ -57,11 +57,11 @@ fn pingpong(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     println!("polling & zero copy: ");
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
     Ok(())
 }
 
-fn pingpong_large(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+fn pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error>> {
     let buf = vec![0u8; 8192];
     // ping pong test
     let begin = Instant::now();
@@ -70,7 +70,7 @@ fn pingpong_large(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error
         let received = conn.recv::<Vec<u8>>()?;
         assert_eq!(8192, received.len());
     }
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
 
     // ping pong test (zero copy)
     let begin = Instant::now();
@@ -79,7 +79,7 @@ fn pingpong_large(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error
         assert_eq!(8192, conn.rx.zero_copy_context().recv::<Vec<u8>>()?.len()); //zero copy
     }
     println!("zero copy: ");
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
 
     // ping pong test (busy polling)
     let begin = Instant::now();
@@ -89,7 +89,7 @@ fn pingpong_large(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error
         assert_eq!(8192, received.len());
     }
     println!("polling: ");
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
 
     // ping pong test (zero copy & busy polling)
     let begin = Instant::now();
@@ -103,18 +103,8 @@ fn pingpong_large(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error
         }
     }
     println!("polling & zero copy: ");
-    print_latency(begin);
+    print_latency(begin, TEST_NUM);
     Ok(())
-}
-
-fn print_latency(begin: Instant) {
-    let end = Instant::now();
-    println!(
-        "Ping-pong {} times use {} us, {} us for each time.\n",
-        TEST_NUM,
-        end.duration_since(begin).as_micros(),
-        end.duration_since(begin).as_micros() as f64 / TEST_NUM as f64
-    );
 }
 
 fn client_args() -> clap::ArgMatches {
@@ -135,7 +125,7 @@ fn client_args() -> clap::ArgMatches {
 
 fn create_client_conn(
     matches: &clap::ArgMatches,
-) -> Result<Connection, Box<dyn std::error::Error>> {
+) -> Result<IpmpscConnection, Box<dyn std::error::Error>> {
     let map_file = matches.value_of("map file").unwrap();
 
     let s2c_map_file = &format!("{}_s2c", map_file); // server to client
@@ -143,5 +133,5 @@ fn create_client_conn(
 
     let rx = Receiver::new(SharedRingBuffer::open(s2c_map_file)?);
     let tx = Sender::new(SharedRingBuffer::open(c2s_map_file)?);
-    Ok(Connection { rx, tx })
+    Ok(IpmpscConnection { rx, tx })
 }

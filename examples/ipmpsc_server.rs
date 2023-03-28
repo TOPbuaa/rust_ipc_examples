@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use ipmpsc::{Receiver, Sender, SharedRingBuffer};
-use rust_ipc_examples::Connection;
+use rust_ipc_examples::IpmpscConnection;
 
 const TEST_NUM: u64 = 100000;
 
@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn handle_pingpong(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+fn handle_pingpong(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error>> {
     for _ in 0..TEST_NUM {
         let received =  conn.recv::<String>()?;
         assert_eq!("hello world", received);
@@ -42,7 +42,7 @@ fn handle_pingpong(conn: &mut Connection) -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
-fn handle_pingpong_large(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+fn handle_pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error>> {
     let buf = vec![0u8; 8192];
     for _ in 0..TEST_NUM {
         let received =  conn.recv::<Vec<u8>>()?;
@@ -94,7 +94,7 @@ fn server_args() -> clap::ArgMatches {
     .get_matches()
 }
 
-fn create_server_conn(matches: &clap::ArgMatches) -> Result<Connection, Box<dyn std::error::Error>> {
+fn create_server_conn(matches: &clap::ArgMatches) -> Result<IpmpscConnection, Box<dyn std::error::Error>> {
     let map_file = matches.value_of("map file").unwrap();
     let s2c_map_file = &format!("{}_s2c", map_file); // server to client
     let c2s_map_file = &format!("{}_c2s", map_file); // client to server
@@ -108,5 +108,5 @@ fn create_server_conn(matches: &clap::ArgMatches) -> Result<Connection, Box<dyn 
         "Ready!  Now run `cargo run --example client {}` in another terminal.",
         map_file
     );
-    Ok(Connection { rx, tx })
+    Ok(IpmpscConnection { rx, tx })
 }
