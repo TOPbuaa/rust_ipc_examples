@@ -74,22 +74,17 @@ fn handle_pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std:
 }
 
 fn server_args() -> clap::ArgMatches {
-    App::new("ipmpsc-send")
-    .about("ipmpsc sender example")
+    App::new("ipmpsc_server")
+    .about("ipmpsc server example")
     .version(env!("CARGO_PKG_VERSION"))
     .author(env!("CARGO_PKG_AUTHORS"))
     .arg(
         Arg::with_name("map file")
             .help(
-                "File to use for shared memory ring buffer.  \
-                 This file will be cleared if it already exists or created if it doesn't.",
+                "File prefix to use for shared memory ring buffer.  \
+                 Files([prefix]_s2c,[prefix]_c2s) will be cleared if it already exists or created if it doesn't.",
             )
             .required(true),
-    )
-    .arg(
-        Arg::with_name("zero copy")
-            .long("zero-copy")
-            .help("Use zero-copy deserialization"),
     )
     .get_matches()
 }
@@ -104,9 +99,5 @@ fn create_server_conn(matches: &clap::ArgMatches) -> Result<IpmpscConnection, Bo
     let _ = SharedRingBuffer::create(s2c_map_file, 512 * 1024)?;
     let tx = Sender::new(SharedRingBuffer::open(s2c_map_file)?);
 
-    println!(
-        "Ready!  Now run `cargo run --example client {}` in another terminal.",
-        map_file
-    );
     Ok(IpmpscConnection { rx, tx })
 }

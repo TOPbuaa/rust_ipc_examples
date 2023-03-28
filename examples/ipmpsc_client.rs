@@ -108,15 +108,15 @@ fn pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error:
 }
 
 fn client_args() -> clap::ArgMatches {
-    App::new("ipmpsc-send")
-        .about("ipmpsc sender example")
+    App::new("ipmpsc_client")
+        .about("ipmpsc client example")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .arg(
             Arg::with_name("map file")
                 .help(
-                    "File to use for shared memory ring buffer.  \
-                     This should have already been created and initialized by the receiver.",
+                    "File prefix to use for shared memory ring buffer.  \
+                    Files([prefix]_s2c,[prefix]_c2s) should have already been created and initialized by the server.",
                 )
                 .required(true),
         )
