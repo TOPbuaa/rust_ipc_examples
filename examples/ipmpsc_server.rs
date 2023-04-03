@@ -1,6 +1,7 @@
 use clap::{App, Arg};
 use ipmpsc::{Receiver, Sender, SharedRingBuffer};
 use rust_ipc_examples::IpmpscConnection;
+use serde_bytes::{ByteBuf, Bytes};
 
 const TEST_NUM: u64 = 100000;
 
@@ -14,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn handle_pingpong(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error>> {
     for _ in 0..TEST_NUM {
-        let received =  conn.recv::<String>()?;
+        let received = conn.recv::<String>()?;
         assert_eq!("hello world", received);
         conn.send(&"hello".to_owned())?;
     }
@@ -25,14 +26,14 @@ fn handle_pingpong(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error
     }
 
     for _ in 0..TEST_NUM {
-        let received =  conn.recv_busy_poll::<String>()?;
+        let received = conn.recv_busy_poll::<String>()?;
         assert_eq!("hello world", received);
         conn.send(&"hello".to_owned())?;
     }
 
     for _ in 0..TEST_NUM {
         loop {
-            if let Some(received) =  conn.rx.zero_copy_context().try_recv::<&str>()? {
+            if let Some(received) = conn.rx.zero_copy_context().try_recv::<&str>()? {
                 assert_eq!("hello world", received);
                 break;
             }
@@ -43,27 +44,27 @@ fn handle_pingpong(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error
 }
 
 fn handle_pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error>> {
-    let buf = vec![0u8; 8192];
+    let buf = ByteBuf::from(vec![0u8; 8192]);
     for _ in 0..TEST_NUM {
-        let received =  conn.recv::<Vec<u8>>()?;
+        let received = conn.recv::<ByteBuf>()?;
         assert_eq!(8192, received.len());
         conn.send(&buf)?;
     }
 
     for _ in 0..TEST_NUM {
-        assert_eq!(8192, conn.rx.zero_copy_context().recv::<Vec<u8>>()?.len()); //zero copy
+        assert_eq!(8192, conn.rx.zero_copy_context().recv::<&Bytes>()?.len()); //zero copy
         conn.send(&buf)?;
     }
 
     for _ in 0..TEST_NUM {
-        let received =  conn.recv_busy_poll::<Vec<u8>>()?;
+        let received = conn.recv_busy_poll::<ByteBuf>()?;
         assert_eq!(8192, received.len());
         conn.send(&buf)?;
     }
 
     for _ in 0..TEST_NUM {
         loop {
-            if let Some(received) =  conn.rx.zero_copy_context().try_recv::<Vec<u8>>()? {
+            if let Some(received) = conn.rx.zero_copy_context().try_recv::<&Bytes>()? {
                 assert_eq!(8192, received.len());
                 break;
             }
@@ -89,7 +90,9 @@ fn server_args() -> clap::ArgMatches {
     .get_matches()
 }
 
-fn create_server_conn(matches: &clap::ArgMatches) -> Result<IpmpscConnection, Box<dyn std::error::Error>> {
+fn create_server_conn(
+    matches: &clap::ArgMatches,
+) -> Result<IpmpscConnection, Box<dyn std::error::Error>> {
     let map_file = matches.value_of("map file").unwrap();
     let s2c_map_file = &format!("{}_s2c", map_file); // server to client
     let c2s_map_file = &format!("{}_c2s", map_file); // client to server

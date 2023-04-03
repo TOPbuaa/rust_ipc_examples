@@ -1,6 +1,7 @@
 use clap::{App, Arg};
 use ipmpsc::{Receiver, Sender, SharedRingBuffer};
-use rust_ipc_examples::{IpmpscConnection, print_latency};
+use rust_ipc_examples::{print_latency, IpmpscConnection};
+use serde_bytes::{ByteBuf, Bytes};
 use std::time::Instant;
 
 const TEST_NUM: u64 = 100000;
@@ -62,12 +63,12 @@ fn pingpong(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error
 }
 
 fn pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error::Error>> {
-    let buf = vec![0u8; 8192];
+    let buf = ByteBuf::from(vec![0u8; 8192]);
     // ping pong test
     let begin = Instant::now();
     for _ in 0..TEST_NUM {
         conn.send(&buf)?;
-        let received = conn.recv::<Vec<u8>>()?;
+        let received = conn.recv::<ByteBuf>()?;
         assert_eq!(8192, received.len());
     }
     print_latency(begin, TEST_NUM);
@@ -76,7 +77,7 @@ fn pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error:
     let begin = Instant::now();
     for _ in 0..TEST_NUM {
         conn.send(&buf)?;
-        assert_eq!(8192, conn.rx.zero_copy_context().recv::<Vec<u8>>()?.len()); //zero copy
+        assert_eq!(8192, conn.rx.zero_copy_context().recv::<&Bytes>()?.len()); //zero copy
     }
     println!("zero copy: ");
     print_latency(begin, TEST_NUM);
@@ -85,7 +86,7 @@ fn pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error:
     let begin = Instant::now();
     for _ in 0..TEST_NUM {
         conn.send(&buf)?;
-        let received = conn.recv_busy_poll::<Vec<u8>>()?;
+        let received = conn.recv_busy_poll::<ByteBuf>()?;
         assert_eq!(8192, received.len());
     }
     println!("polling: ");
@@ -96,7 +97,7 @@ fn pingpong_large(conn: &mut IpmpscConnection) -> Result<(), Box<dyn std::error:
     for _ in 0..TEST_NUM {
         conn.send(&buf)?;
         loop {
-            if let Some(received) = conn.rx.zero_copy_context().try_recv::<Vec<u8>>()? {
+            if let Some(received) = conn.rx.zero_copy_context().try_recv::<&Bytes>()? {
                 assert_eq!(8192, received.len());
                 break;
             }
